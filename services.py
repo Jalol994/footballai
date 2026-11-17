@@ -52,25 +52,13 @@ def league_table(df):
 
 
 def data_quality(df):
-    """Plain-language warnings about the loaded data."""
+    """Warnings as (code, params); the UI translates them."""
     w = []
-    if df.empty: return ["No data loaded."]
-    if df.get("is_demo", pd.Series([0])).astype(bool).any(): w.append("Contains DEMO (simulated) matches. Not real results.")
-    if len(df) < 1000: w.append(f"Only {len(df)} matches: backtesting needs 1,000+ for a meaningful validation.")
+    if df.empty: return [("dq_none", {})]
+    if df.get("is_demo", pd.Series([0])).astype(bool).any(): w.append(("dq_demo", {}))
+    if len(df) < 1000: w.append(("dq_small", {"n": len(df)}))
     age = (pd.Timestamp.today() - pd.to_datetime(df.date).max()).days
-    if age > 30: w.append(f"Newest match is {age} days old: data may be outdated.")
-    if "ht_hg" not in df or df.ht_hg.isna().mean() > 0.2: w.append("Half-time scores are largely missing: first-half shares use an assumed default (45%).")
-    if "oh" not in df or df.oh.isna().all(): w.append("No bookmaker odds in data: odds comparison unavailable.")
+    if age > 30: w.append(("dq_old", {"days": age}))
+    if "ht_hg" not in df or df.ht_hg.isna().mean() > 0.2: w.append(("dq_ht", {}))
+    if "oh" not in df or df.oh.isna().all(): w.append(("dq_odds", {}))
     return w
-
-
-def explain(home, away, lh, la, rho, share, hs, as_):
-    """Plain-language list of the factors behind a prediction."""
-    fav = home if lh > la else away
-    lines = [f"Expected goals: {home} {lh:.2f}, {away} {la:.2f}. {fav} is the statistical favourite on goal rates.",
-             f"Roughly {share*100:.0f}% of goals are modelled in the first half (observed or assumed default).",
-             f"Low-score correction (Dixon-Coles rho = {rho:+.3f}) adjusts 0-0, 1-0, 0-1 and 1-1 probabilities."]
-    if hs: lines.append(f"{home}: {hs['goals_for']:.2f} scored / {hs['goals_against']:.2f} conceded per match in the data ({hs['matches']} matches).")
-    if as_: lines.append(f"{away}: {as_['goals_for']:.2f} scored / {as_['goals_against']:.2f} conceded per match in the data ({as_['matches']} matches).")
-    lines.append("Injuries, suspensions and lineups are NOT in this model yet; check them yourself before relying on any number.")
-    return lines
